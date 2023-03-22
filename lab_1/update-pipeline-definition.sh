@@ -102,29 +102,30 @@ if [ "$?" -eq 1 ] ; then
 fi
 
 # (i) The metadata property is removed.
-jq 'del(.metadata)' $DATA > "$tmp"
+jq 'del(.metadata)' $DATA > "$NEW_DATA"
 
 #Check if version prop exists
-jq -e '.pipeline.version' "$DATA" >/dev/null
+jq -e '.pipeline.version' "$NEW_DATA" >/dev/null
 if [ "$?" -eq 1 ] ; then
   echo "version key not found"
   exit 1
 fi
 
 # (ii) The value of the pipeline’s version property is incremented by 1.
-VERSION=`jq '.pipeline.version' "$tmp"`
+VERSION=`jq '.pipeline.version' "$NEW_DATA"`
 
+jq --arg version "$((VERSION+1))" '.pipeline.version = ($version)' "$NEW_DATA" > "$tmp" && mv "$tmp" "$NEW_DATA"
 # Check if additional params (config, owner), otherwise do not continue rest of operations
 checkParams
 
 # WRITE TO NEW FILE
 # UPDATE EnvironmentVariables
-jq --arg config $CONFIG '.pipeline.stages[1] | .actions[0].configuration.EnvironmentVariables | fromjson | .[].value= ($config) | tojson' "$tmp" > tmp.env_config
+jq --arg config $CONFIG '.pipeline.stages[1] | .actions[0].configuration.EnvironmentVariables | fromjson | .[].value= ($config) | tojson' "$NEW_DATA" > tmp.env_config
 
 ENV_VAR=`cat ./tmp.env_config`
 rm ./tmp.env_config
 
-jq --arg version "$((VERSION+1))" --arg branch $BRANCH --arg owner $OWNER --arg poll $POLL_FOR_CHANGES '.pipeline.version = ($version) | .pipeline.stages[0].actions[0].configuration.Branch = ($branch) | .pipeline.stages[0].actions[0].configuration.Owner = ($owner) | .pipeline.stages[0].actions[0].configuration.PollForSourceChanges = ($poll) ' "$tmp" > "$NEW_DATA"
+jq --arg branch "$BRANCH" --arg owner "$OWNER" --arg poll "$POLL_FOR_CHANGES" '.pipeline.stages[0].actions[0].configuration.Branch = ($branch) | .pipeline.stages[0].actions[0].configuration.Owner = ($owner) | .pipeline.stages[0].actions[0].configuration.PollForSourceChanges = ($poll) ' "$NEW_DATA" > "$tmp" && mv "$tmp" "$NEW_DATA"
 
 jq --arg env_var $ENV_VAR '( .pipeline.stages[] | .actions[] | select(.configuration.EnvironmentVariables != null)).configuration.EnvironmentVariables = ($env_var)' "$NEW_DATA" > "$tmp" && mv "$tmp" "$NEW_DATA"
 
