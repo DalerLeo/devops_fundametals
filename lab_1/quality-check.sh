@@ -17,5 +17,20 @@
 #      REVISION:  ---
 #===============================================================================
 
-#npm run lint && npm run test && npm audit
-npm run test 2> /dev/null
+checkStatus() {
+	exit_status=$?
+	if [ "$exit_status" -eq 1 ]; then
+		echo "$1 has errors, please check "$1" process"
+		exit 1
+	fi
+}
+
+npm run lint >/dev/null 2>&1
+checkStatus "Linting"
+
+npm run build >/dev/null 2>&1
+checkStatus "Build"
+
+npm audit >/dev/null 2>&1
+checkStatus "Auditing"
+
